@@ -12,7 +12,7 @@ int main() {
     book.reveal(); //ask: 100 - 5 bid: nothing
     book.limit_buy(3, 101, 5);
     book.limit_buy(4, 100, 5);
-    book.reveal(); //ask: 100 - 3 bid: nothing
+    book.reveal(); //ask: nothing bid: 100 - 5
     book.limit_buy(4, 100, 5);
     book.reveal(); //same id should reject and be prev
 
