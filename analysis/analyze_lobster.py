@@ -59,7 +59,7 @@ def locate_files() -> tuple[Path, Path]:
         raise DataError(
             f"No LOBSTER CSV files found in {DATA_DIR}.\n"
             "Download the LOBSTER AAPL Level 1 sample "
-            "(https://lobsterdata.com/info/DataSamples.php), extract it, and place "
+            "(https://php.lobsterdata.com/info/DataSamples.php), extract it, and place "
             "the paired files there, e.g.:\n"
             "  data/lobster/AAPL_2012-06-21_34200000_57600000_message_1.csv\n"
             "  data/lobster/AAPL_2012-06-21_34200000_57600000_orderbook_1.csv"

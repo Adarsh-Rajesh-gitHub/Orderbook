@@ -1,14 +1,14 @@
 # C++23 Limit Order Book & Matching Engine
 
-A price-time-priority limit order book and matching engine in C++, plus two
-independent pieces of measurement:
+A limit order book with price-time priority matching, plus two separate
+measurement components:
 
-1. a **synthetic throughput benchmark** of the C++ engine, and
+1. a **synthetic throughput benchmark** of the engine, and
 2. a **historical microstructure analysis** of real NASDAQ-derived market data.
 
-These two are separate exercises and are reported separately. The benchmark says
-nothing about the historical data, and the historical analysis does not run
-through the C++ engine.
+They're independent. The benchmark tells you nothing about the historical data,
+and the historical analysis never touches the C++ engine. Keeping them apart is
+deliberate, so neither borrows credibility from the other.
 
 ## Build & run
 
@@ -21,10 +21,10 @@ cmake --build build-release -j
 
 ## Synthetic matching-engine benchmark
 
-`bench/benchmark.cpp` replays a **generated** mixed workload against the engine:
-1,000,000 commands built from 100,000 blocks of 7 limit submissions and 3
-guaranteed-valid cancellations, with two deliberate crossing pairs per block. It
-runs 5 timed passes after a warm-up and reports the median.
+`bench/benchmark.cpp` runs a generated mixed workload through the engine:
+1,000,000 commands, built from 100,000 blocks of 7 limit submissions and 3
+cancellations that are guaranteed to hit resting orders, with two deliberate
+crossing pairs per block. Five timed passes after a warm-up, median reported.
 
 Measured on an Apple M4 Pro, Release (`-O3`):
 
@@ -36,30 +36,32 @@ Measured on an Apple M4 Pro, Release (`-O3`):
 | executed volume | 10,109,700 |
 | cancellations | 300,000 |
 
-This workload is **synthetic**. It is a deterministic stress test of the engine's
-data structures, not a replay of real market activity and not a claim about
-performance under any exchange's real message mix.
+The workload is synthetic and deterministic. It stresses the engine's data
+structures under a fixed command mix. It isn't a replay of real market activity,
+and it says nothing about how the engine would behave under any exchange's actual
+message flow.
 
 ## LOBSTER historical analysis
 
 ### Data
 
-`data/lobster/` holds the free LOBSTER AAPL Level 1 sample
-([lobsterdata.com](https://lobsterdata.com/info/DataSamples.php)), which LOBSTER
-reconstructs from **NASDAQ Historical TotalView-ITCH**. The sample used here is
-AAPL, 2012-06-21, 09:30–16:00.
+`data/lobster/` is expected to contain the free
+[LOBSTER AAPL Level 1 sample](https://php.lobsterdata.com/info/DataSamples.php).
+LOBSTER reconstructs these files from **NASDAQ Historical TotalView-ITCH**. The
+sample used here is AAPL on 2012-06-21, 09:30 to 16:00.
 
-This project reads LOBSTER's already-reconstructed CSVs. It does **not** parse
-raw ITCH, does not reconstruct the Nasdaq book itself, and does not reproduce
+This project reads those reconstructed CSVs and nothing more. It does not parse
+raw ITCH, does not rebuild the Nasdaq book itself, and does not reproduce
 Nasdaq's matching behaviour.
 
-Each sample is a paired message file (`time, event_type, order_id, size, price,
-direction`) and orderbook file (`ask_price, ask_size, bid_price, bid_size`) with
-one orderbook row per message row. Prices are stored as dollar price × 10,000;
-the analysis works in those integer units and converts to dollars only for
-human-readable output.
+Each sample is a message file (`time, event_type, order_id, size, price,
+direction`) paired with an orderbook file (`ask_price, ask_size, bid_price,
+bid_size`), one orderbook row per message row. LOBSTER stores prices as dollar
+price × 10,000. The analysis stays in those integer units and converts to dollars
+only for output a human reads.
 
-If the CSVs are missing, the script exits with instructions on where to put them.
+If the CSVs aren't there, the script exits and tells you what to download and
+where to put it.
 
 ### Method
 
@@ -74,25 +76,26 @@ For every book state the script computes
 - `midpoint = (ask_price + bid_price) / 2`
 - `imbalance = (bid_size - ask_size) / (bid_size + ask_size)`
 
-The midpoint is unchanged across long runs of consecutive messages, so treating
-every row as an observation would count thousands of near-identical states from
-one unchanged-midpoint interval as independent evidence. Instead the series is
-split into consecutive **constant-midpoint intervals**, and:
+The midpoint sits still across long runs of consecutive messages. Treating every
+row as an observation would count thousands of near-identical states from one
+unchanged-midpoint stretch as independent evidence, which would inflate the
+sample without adding information. So the series is split into consecutive
+**constant-midpoint intervals**, and:
 
-- one observation is taken per interval — the **first** book state in it;
-- it is labelled `next_move_up = 1` if the **next** interval's midpoint is
-  higher, otherwise `0`;
-- the final interval is dropped, since it has no following midpoint move.
+- each interval contributes one observation, the **first** book state in it;
+- that observation is labelled `next_move_up = 1` when the **next** interval's
+  midpoint is higher, otherwise `0`;
+- the last interval is dropped, since nothing follows it.
 
 Observations are then bucketed by imbalance into `[-1.0, -0.6)`, `[-0.6, -0.2)`,
 `[-0.2, 0.2)`, `[0.2, 0.6)`, `[0.6, 1.0]`, and the up-move rate is reported per
-bucket. Because every interval boundary is by construction a midpoint change,
+bucket. Every interval boundary is a midpoint change by construction, so
 `P(down) = 1 - P(up)`.
 
 ### Result
 
-From 118,497 raw rows, 64,350 constant-midpoint intervals are used (no rows had
-an empty side). The overall up-move base rate is 0.4978.
+118,497 raw rows yield 64,350 constant-midpoint intervals (no row had an empty
+side of the book). The overall up-move base rate is 0.4978.
 
 ![Probability the next midpoint move is up, by order-book imbalance](results/imbalance_next_move.png)
 
@@ -106,21 +109,21 @@ an empty side). The overall up-move base rate is 0.4978.
 
 Full output: [`results/imbalance_next_move.csv`](results/imbalance_next_move.csv).
 
-The up-move rate increases monotonically with imbalance: a bid-heavy book
+The up-move rate rises monotonically across the buckets. A bid-heavy book
 (imbalance ≥ 0.6) is followed by an upward midpoint move 54.6% of the time,
-versus 44.5% for an ask-heavy book. The spread between the extreme buckets is
-about 10 percentage points around a 49.8% base rate.
+against 44.5% for an ask-heavy book, roughly 10 percentage points apart around a
+49.8% base rate.
 
 ### Limitations
 
-- **One sample period, one ticker.** A single AAPL trading day in 2012. Nothing
-  here establishes that the relationship holds for other names, other days, or
-  the current market.
+- **One sample period, one ticker.** A single AAPL trading day in 2012. That's
+  no basis for saying the relationship holds for other names, other days, or
+  today's market.
 - **Descriptive association, not a strategy.** This is a conditional frequency,
-  not a backtest. It ignores transaction costs, the spread, queue position, fill
-  probability, and adverse selection — a signal of this size at Level 1 is well
-  inside the costs of acting on it.
-- **Level 1 only.** Imbalance is computed from top-of-book sizes; depth beyond
-  the touch is not used.
-- **Not causal.** Imbalance and the subsequent move can both be driven by the
-  same underlying order flow.
+  not a backtest. Because the analysis ignores transaction costs, spread, queue
+  position, fill probability, and adverse selection, it does not establish
+  profitability.
+- **Level 1 only.** Imbalance comes from top-of-book sizes. Depth behind the
+  touch is not used.
+- **Not causal.** The same underlying order flow can drive both the imbalance
+  and the move that follows it.
