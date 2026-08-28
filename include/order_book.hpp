@@ -21,6 +21,8 @@
 #include <optional>
 #include <cstdint>
 #include <vector> 
+#include <iostream>
+
 #include <functional> 
 
 class OrderBook {
@@ -47,6 +49,9 @@ public:
         Price price;
         Quantity quantity;
         Side side;
+        void print() const {
+            std::cout << "[id: " << id << " | price: " << price << " | quantity:  " << quantity << "], ";
+        }
     };
 
     OrderBook();
@@ -55,11 +60,12 @@ public:
     bool cancel(OrderId id);
     std::optional<Price> best_bid() const;
     std::optional<Price> best_ask() const;
+    void reveal() const;
 
 private:
-    std::map<int, std::list<Order>, std::greater<int>> bid;
-    std::map<int, std::list<Order>> ask;
-    std::unordered_map<int, std::list<Order>::iterator> orders;
+    std::map<Price, std::list<Order>, std::greater<Price>> bid;
+    std::map<Price, std::list<Order>> ask;
+    std::unordered_map<OrderId, std::list<Order>::iterator> orders;
 
 };
 #endif

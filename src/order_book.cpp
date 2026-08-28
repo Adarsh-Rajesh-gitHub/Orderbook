@@ -8,12 +8,13 @@
 #include <vector> 
 #include <functional> 
 #include <algorithm>
+#include <iostream>
 
 #include "order_book.hpp"
 
 
 
-
+OrderBook::OrderBook() = default;
 
 std::vector<OrderBook::Fill> OrderBook::limit_buy(OrderId id, Price price, Quantity quantity) {
     if(orders.contains(id)){
@@ -146,3 +147,24 @@ std::optional<OrderBook::Price> OrderBook::best_ask() const {
     return std::nullopt;
 }
 
+void OrderBook::reveal() const {
+    std::cout << "Ask: ";
+    for(const auto& [price, level] : ask) {
+        std::cout << price << " - {";
+        for(const auto& ord : level) {
+            ord.print();
+        }
+        std::cout << "}" << std::endl;
+    }
+    std::cout << std::endl;
+    std::cout << "Bid: ";
+    for(const auto& [price, level] : bid) {
+        std::cout << price << " - {";
+        for(const auto& ord : level) {
+            ord.print();
+        }
+        std::cout << "}" << std::endl;
+    }
+    std::cout << std::endl << "-------------------------" << std::endl;
+}
+ 
